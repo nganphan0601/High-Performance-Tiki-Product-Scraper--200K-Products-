@@ -1,2 +1,2 @@
-data/batch_*.json
+data/*.json
 scripts/utils.py
