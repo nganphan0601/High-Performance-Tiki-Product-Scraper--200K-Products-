@@ -1,2 +1,7 @@
 # High-Performance-Tiki-Product-Scraper--200K-Products-
- Will update
+
+# Create and activate a virtual environment
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate
+```

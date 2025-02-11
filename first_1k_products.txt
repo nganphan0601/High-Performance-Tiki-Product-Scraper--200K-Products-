@@ -1,0 +1,16 @@
+⚠️ Warning: Missing 'id' key in product data for URL https://api.tiki.vn/product-detail/api/v1/products/202719601
+Failed to fetch product with ID: 202719601
+⚠️ Warning: Missing 'id' key in product data for URL https://api.tiki.vn/product-detail/api/v1/products/252177965
+Failed to fetch product with ID: 252177965
+⚠️ Warning: Missing 'id' key in product data for URL https://api.tiki.vn/product-detail/api/v1/products/154530131
+Failed to fetch product with ID: 154530131
+⚠️ Warning: Missing 'id' key in product data for URL https://api.tiki.vn/product-detail/api/v1/products/215162868
+Failed to fetch product with ID: 215162868
+⚠️ Warning: Missing 'id' key in product data for URL https://api.tiki.vn/product-detail/api/v1/products/214841295
+Failed to fetch product with ID: 214841295
+⚠️ Warning: Missing 'id' key in product data for URL https://api.tiki.vn/product-detail/api/v1/products/253041020
+Failed to fetch product with ID: 253041020
+⚠️ Warning: Missing 'id' key in product data for URL https://api.tiki.vn/product-detail/api/v1/products/251921456
+Failed to fetch product with ID: 251921456
+Saved 1000 products to data\products_batch_0.json
+Total time: 276.64162278175354 seconds
