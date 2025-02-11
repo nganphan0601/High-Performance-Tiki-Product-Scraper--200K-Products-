@@ -2,6 +2,8 @@ import sys, io, pandas as pd, json, time, requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+import threading
+
 
 # Ensure default encoding is set to UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -31,41 +33,56 @@ def format_product(product):
     }
 
 # **Fetch a Single Product (Synchronous)**
-def fetch_product(driver, url, delay):
+def fetch_product(url, delay, results_list):
     """Fetch product details from the API using Selenium while handling rate limits."""
     time.sleep(delay)  # Respect API rate limits
+    driver = create_webdriver()
+
     try:
         driver.get(url)
         response_text = driver.find_element(By.TAG_NAME, "pre").text  # Extract JSON response
         product = json.loads(response_text)  # Convert text to JSON
-
-        return format_product(product)  # Format and return product data
-        
+        results_list.append(format_product(product))  # Format and return product data        
+    
     except Exception as e:
-        print(f"❌ Error fetching {url} using Selenium: {e}")
+        print(f"Error fetching {url} using Selenium: {e}")
         return None  
+    finally:
+        driver.quit()
 
 # **Fetch All Products (Sequential)**
-def fetch_all_products(driver, url, products_ids, batch_size=1000, delay=1):
+def fetch_all_products(url, products_ids, batch_size=1000, delay=0.1, max_threads=5):
     """Fetch products one by one while respecting rate limits."""
     results = []
-    file_index = 12
+    file_index = 28 # Starting file index for saving batches
+    start_index = 27001  # Starting index for products
+    threads = []
 
-    for i in range(11001, len(products_ids), batch_size):
-        batch = products_ids[i:i + batch_size]
+    for p_id in products_ids[start_index:]:  # Start from index 27001
+        product_url = url.format(p_id)
 
-        for p_id in batch:
-            product_url = url.format(p_id)
-            fetched_product = fetch_product(driver, product_url, delay)
-            results.append(fetched_product) if fetched_product else None
+        # Create a thread for each product fetch
+        thread = threading.Thread(target=fetch_product, args=(product_url, delay, results))
+        threads.append(thread)
+        thread.start()
 
-        # Save every batch_size products
+        # Limit the number of active threads
+        if len(threads) >= max_threads:
+            for t in threads:
+                t.join()  # Wait for threads to complete
+            threads = []  # Reset thread list after each batch
+
+        # Save batch to JSON
         if len(results) >= batch_size:
             save_to_json(results, file_index, filename="data/batch_")
-            results = []  # Reset batch
+            results = []
             file_index += 1
 
-    # **Final Save for Remaining Products**
+    # Wait for remaining threads to finish
+    for t in threads:
+        t.join()
+
+    # Save remaining products
     if results:
         save_to_json(results, file_index, filename="data/batch_")
 
@@ -77,14 +94,14 @@ def save_to_json(results, file_index, filename=None):
     full_filename = f"{filename}{file_index}.json"
     with open(full_filename, "w", encoding="utf-8") as file:
         json.dump(results, file, ensure_ascii=False, indent=2)
-    print(f"💾 Saved {len(results)} products to {full_filename}")
 
 # **Main Function**
 def main():
-    driver = create_webdriver()
+    # driver = create_webdriver()
     batch_size = 1000
-    delay = 0.1  # Adjust based on API limits (set lower if possible)
-    
+    delay = 0.2  # Adjust based on API limits (set lower if possible)
+    max_threads = 5
+
     # Load product IDs from the CSV file
     products_ids = pd.read_csv("data/products-0-200000(in).csv")["id"].tolist()
     
@@ -94,13 +111,13 @@ def main():
     start_time = time.time()
 
     # Fetch all products sequentially
-    fetch_all_products(driver, api_url, products_ids, batch_size, delay)
+    fetch_all_products(api_url, products_ids, batch_size, delay, max_threads)
 
     end_time = time.time()
     total_time = end_time - start_time
     print(f"Total time: {total_time:.2f} seconds")
 
-    driver.quit()
+    # driver.quit()
 
 # **Run the Program**
 if __name__ == "__main__":
