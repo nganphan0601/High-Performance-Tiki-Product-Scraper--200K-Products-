@@ -14,3 +14,4 @@ Failed to fetch product with ID: 253041020
 Failed to fetch product with ID: 251921456
 Saved 1000 products to data\products_batch_0.json
 Total time: 276.64162278175354 seconds
+Sequential Approach: Nearly 5 minutes for a batch of 1000 products => ~ 1000 minutes/ 16,67 hours for 200 batches
