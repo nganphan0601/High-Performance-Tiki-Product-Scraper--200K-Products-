@@ -49,7 +49,7 @@ def fetch_product(driver, url, delay):
 def fetch_all_products(driver, url, products_ids, batch_size=1000, delay=1):
     """Fetch products one by one while respecting rate limits."""
     results = []
-    file_index = 28
+    file_index = 47
     start_index = 27001  # Starting index for products
 
     for i in range(start_index, len(products_ids), batch_size):
