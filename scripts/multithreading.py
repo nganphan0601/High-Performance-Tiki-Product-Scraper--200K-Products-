@@ -54,11 +54,11 @@ def fetch_product(url, delay, results_list):
 def fetch_all_products(url, products_ids, batch_size=1000, delay=0.1, max_threads=5):
     """Fetch products one by one while respecting rate limits."""
     results = []
-    file_index = 28 # Starting file index for saving batches
-    start_index = 27001  # Starting index for products
+    file_index = 67 # Starting file index for saving batches
+    start_index = 66003  # Starting index for products
     threads = []
 
-    for p_id in products_ids[start_index:]:  # Start from index 27001
+    for p_id in products_ids[start_index:]: 
         product_url = url.format(p_id)
 
         # Create a thread for each product fetch
