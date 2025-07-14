@@ -1,7 +1,8 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
+# from selenium import webdriver
+# from selenium.webdriver.common.by import By
+import re
 import sys, io, pandas as pd, json, time, asyncio, aiohttp
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 
 
 # Ensure default encoding is set to UTF-8
@@ -10,8 +11,9 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Functions to format each product returned by the API
 def format_description(product_description):
-    soup = BeautifulSoup(product_description, "html.parser")
-    clean_text = soup.get_text(separator="\n", strip=True)
+    """Decodes HTML entities, removes tags, and cleans text efficiently."""
+    clean_text = re.sub(r"<[^>]*>", "", product_description).strip()
+
     return clean_text
 
 def format_product(product):
@@ -25,27 +27,51 @@ def format_product(product):
         "images_url": [image["base_url"] for image in product.get("images", [])]
     }
 
-async def fetch_products(session, url, semaphore, delay=1):
-    # Navigate to the API URL
+# async def fetch_products(session, url, semaphore, delay=1):
+#     # Navigate to the API URL
+#     async with semaphore:
+#         await asyncio.sleep(delay)
+#         try:     
+#             async with session.get(url) as response:
+#                 if response.status == 200:
+#                     product = await response.json()
+#                     formatted_product = format_product(product)
+#                     return formatted_product
+#                 else:
+#                     print(f"Failed to fetch data from {url}. Status code: {response.status}")
+#                     return url
+            
+#         except Exception as e:
+#             print("Error fetching data:", e)
+#             return url
+    
+async def fetch_product(session, url, semaphore):
+    """Fetch data from API and handle rate limits."""
     async with semaphore:
-        await asyncio.sleep(delay)
-        try:     
+        try:
             async with session.get(url) as response:
                 if response.status == 200:
                     product = await response.json()
-                    formatted_product = format_product(product)
-                    return formatted_product
+                    return format_product(product)
+
+                elif response.status == 429:  # Rate Limited
+                    retry_after = response.headers.get("Retry-After")
+                    wait_time = int(retry_after) if retry_after else 1  # Default to 1s if missing
+                    print(f"Rate limited! Retrying after {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                    return await fetch_product(session, url, semaphore)  # Retry
+
                 else:
-                    print(f"Failed to fetch data from {url}. Status code: {response.status}")
-                    return url
-            
+                    print(f"Failed request ({response.status}): {url}")
+                    return None
+
         except Exception as e:
-            print("Error fetching data:", e)
-            return url
-    
+            print("Request error:", e)
+            return None
+                
 async def fetch_all_products(url, products_ids, batch_size=1000, concurrency=50, delay=1):
     results = []
-    failed_products = []
+    # failed_products = []
     file_index = 1
 
     semaphore = asyncio.Semaphore(concurrency)  # Limit the number of concurrent requests
@@ -54,30 +80,31 @@ async def fetch_all_products(url, products_ids, batch_size=1000, concurrency=50,
         for i in range(0, len(products_ids), batch_size):
             batch = products_ids[i:i + batch_size]
             
-            tasks = [fetch_products(session, url.format(p_id), semaphore, delay) for p_id in batch]
+            tasks = [fetch_product(session, url.format(p_id), semaphore) for p_id in batch]
             fetched_products = await asyncio.gather(*tasks)
 
             successful_products = [product for product in fetched_products if isinstance(product, dict)]
             results.extend(successful_products)
 
-            failed_urls = [product for product in fetched_products if product is isinstance(product, str)]
-            failed_products.extend(failed_urls)
+            # failed_urls = [product for product in fetched_products if product is isinstance(product, str)]
+            # failed_products.extend(failed_urls)
 
             print(f"Batch {file_index}: Fetched {len(successful_products)} products")
 
             # Save the results to a JSON file when the batch is full
             if len(results) == batch_size:
-                save_to_json(results, file_index, filename="data/batch_")
+                save_to_json(results, file_index, filename="async_data/batch_")
                 results = []    # Reset the batch
                 file_index += 1
         
+            await asyncio.sleep(60 / (200 / batch_size))
         # Save the remaining products
         if results:
-            save_to_json(results, file_index, filename="data/batch_")
+            save_to_json(results, file_index, filename="async_data/batch_")
         # Save the failed products
-        print(f"Fetching completed! Total failed products: {len(failed_products)}")
-        if failed_products:
-            save_to_json(failed_products, file_index=0, filename="data/failed_products_")
+        # print(f"Fetching completed! Total failed products: {len(failed_products)}")
+        # if failed_products:
+        #     save_to_json(failed_products, file_index=0, filename="async_data/failed_products_")
 
         
 
@@ -94,21 +121,21 @@ def main():
     # driver = create_webdriver()
     
     # pipeline
-    batch_size = 1000
+    batch_size = 200
     concurrency = 100
-    delay = 10
+    delay = 1
     # Load products IDs from the CSV file
     products_ids = pd.read_csv("data\products-0-200000(in).csv")["id"].tolist()
     # Define the API URL
     api_url = "https://api.tiki.vn/product-detail/api/v1/products/{}"
 
-    start_time = time.time()
+    # start_time = time.time()
     # Fetch all products
     asyncio.run(fetch_all_products(api_url, products_ids, batch_size, concurrency, delay))
         
-    end_time = time.time()
-    total_time = end_time - start_time
-    print(f"Total time: {total_time} seconds")
+    # end_time = time.time()
+    # total_time = end_time - start_time
+    # print(f"Total time: {total_time} seconds")
 
     # driver.quit()
 
